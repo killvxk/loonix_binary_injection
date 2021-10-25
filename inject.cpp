@@ -12,8 +12,7 @@
 // -- null333 (seroh#2009) --
 //
 // TODO: add option for custom libc.so or auto detection
-// TODO: eventually make this ptraceless using /proc/mem
-// TODO: clean up and create class for ropchain
+// TODO: move argument checking to main instead of in helpers
 //
 
 
@@ -46,12 +45,6 @@ uintptr_t get_free_addr(pid_t pid) {
     char fname[30];
     sprintf(fname, "/proc/%li/maps", (long) pid);
     FILE *fp = fopen(fname, "r");
-
-    if (!fp) {
-        std::cout << "pid doesnt exist lol\n";
-        exit(-1);
-    }
-
     char chunk[850]; // ex: 5646750f1000-564675135000 r-xp
     uintptr_t free_addr;
     char is_exec;
@@ -61,7 +54,6 @@ uintptr_t get_free_addr(pid_t pid) {
             break;
         }
     }
-
     fclose(fp);
     return free_addr;
 }
@@ -71,12 +63,6 @@ uintptr_t get_libc_base(pid_t pid) {
     char fname[30];
     sprintf(fname, "/proc/%li/maps", (long) pid);
     FILE *fp = fopen(fname, "r");
-
-    if (!fp) {
-        std::cout << "pid doesnt exist lol\n";
-        exit(-1);
-    }
-
     char chunk[850];
     uintptr_t libc_base;
     while (fgets(chunk, 850, fp)) {
@@ -85,7 +71,6 @@ uintptr_t get_libc_base(pid_t pid) {
             break;
         }
     }
-
     fclose(fp);
     return libc_base;
 }
@@ -158,6 +143,26 @@ int main(int argc, char *argv[]) {
 
     pid_t target_pid = (pid_t) atoi(argv[1]);
     char *target_binary = argv[2];
+    {
+        char fname[strlen(target_binary) + 1]; // note: vulnerable to very large target bin names
+        sprintf(fname, "/proc/%li/status", (long) target_pid);
+        FILE *fp = fopen(fname, "r");
+
+        if (!fp) {
+            std::cout << "pid doesnt exist\n";
+            exit(-1);
+        }
+        fclose(fp);
+
+        memset(fname, 0, 30);
+        sprintf(fname, target_binary);
+        fp = fopen(fname, "r");
+        if (!fp) {
+            std::cout << "program image doesnt exist\n";
+            exit(-1);
+        }
+        fclose(fp);
+    }
 
     // parse /proc/pid/maps to get needed addrs
     uintptr_t execl_addr = get_libc_base(target_pid) + EXECL_OFF;
