@@ -32,7 +32,6 @@ class ropchain {
 
 uintptr_t get_free_addr(pid_t pid) {
     // return addr of first chunk with x perms
-    // ? return any addr doesnt need to have x perms
     char fname[30];
     sprintf(fname, "/proc/%li/maps", (long) pid);
     FILE *fp = fopen(fname, "r");
