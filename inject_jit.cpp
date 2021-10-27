@@ -49,12 +49,6 @@ class shellcode_gen {
     public:
         shellcode_gen() {
             // TODO: fix this bullshit
-            // asmjit::JitRuntime rt;
-            // asmjit::CodeHolder code;
-            // asmjit::x86::Assembler assembler(&code);
-            // asmtk::AsmParser parser(&assembler);
-            // asmjit::CodeBuffer& cb = code.sectionById(0)->buffer();
-
             assembler_ptr = &asmjit::x86::Assembler(&code);
             parser_ptr = &asmtk::AsmParser(assembler_ptr);
             cb_ptr = &(code.sectionById(0)->buffer());
